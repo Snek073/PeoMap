@@ -67,34 +67,17 @@ const COORDS: Record<string, [number, number]> = {
 
 export async function GET() {
   const key = process.env.SEOUL_API_KEY;
-  if (!key) return NextResponse.json([], { status: 200 });
+  if (!key) return NextResponse.json({ error: 'API key missing' }, { status: 500 });
 
   try {
+    const testArea = encodeURIComponent('강남역');
     const res = await fetch(
-      `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/116/`,
-      { next: { revalidate: 300 } }
+      `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${testArea}`,
+      { cache: 'no-store' }
     );
     const json = await res.json();
-    const rows: Record<string, string>[] = json['SeoulRtd.citydata_ppltn']?.row ?? [];
-
-    const data: AreaData[] = rows
-      .map((row) => {
-        const coords = COORDS[row.AREA_NM];
-        if (!coords) return null;
-        return {
-          name: row.AREA_NM,
-          level: row.AREA_CONGEST_LVL as CongestLevel,
-          min: Number(row.AREA_PPLTN_MIN) || 0,
-          max: Number(row.AREA_PPLTN_MAX) || 0,
-          lat: coords[0],
-          lng: coords[1],
-          updatedAt: row.PPLTN_TIME,
-        };
-      })
-      .filter((v): v is AreaData => v !== null);
-
-    return NextResponse.json(data);
-  } catch {
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json({ debug: true, raw: json });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 }
