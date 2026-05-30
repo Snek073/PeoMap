@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import type { AreaData, CongestLevel } from '@/app/api/citydata/route';
 
 const SEOUL_CENTER: [number, number] = [37.5665, 126.9780];
+const LABEL_ZOOM = 12;
 
 const LEVEL_COLOR: Record<CongestLevel, string> = {
   '여유': '#22c55e',
@@ -36,8 +37,9 @@ export default function CongestMap({ areas }: Props) {
     const map = L.map(containerRef.current, {
       center: SEOUL_CENTER,
       zoom: 11,
-      minZoom: 9,
-      maxBounds: L.latLngBounds(L.latLng(37.2, 126.5), L.latLng(37.9, 127.5)),
+      minZoom: 10,
+      maxZoom: 16,
+      maxBounds: L.latLngBounds(L.latLng(37.25, 126.60), L.latLng(37.80, 127.40)),
       maxBoundsViscosity: 1.0,
     });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -47,16 +49,29 @@ export default function CongestMap({ areas }: Props) {
     }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
+
+    // 줌 레벨에 따라 레이블 표시/숨김
+    const updateLabels = () => {
+      const show = map.getZoom() >= LABEL_ZOOM;
+      document.querySelectorAll('.area-label').forEach((el) => {
+        (el as HTMLElement).style.display = show ? '' : 'none';
+      });
+    };
+    map.on('zoomend', updateLabels);
+
     return () => { map.remove(); mapRef.current = null; };
   }, []);
 
   useEffect(() => {
-    if (!layerRef.current) return;
+    if (!layerRef.current || !mapRef.current) return;
     layerRef.current.clearLayers();
+    const showLabel = mapRef.current.getZoom() >= LABEL_ZOOM;
+
     for (const area of areas) {
       const color = LEVEL_COLOR[area.level] ?? '#6b7280';
+      const r = radius(area.min, area.max);
       L.circleMarker([area.lat, area.lng], {
-        radius: radius(area.min, area.max),
+        radius: r,
         fillColor: color,
         color: '#000',
         fillOpacity: 0.75,
@@ -66,7 +81,7 @@ export default function CongestMap({ areas }: Props) {
           permanent: true,
           direction: 'right',
           className: 'area-label',
-          offset: [radius(area.min, area.max) + 4, 0],
+          offset: [r + 4, 0],
         })
         .bindPopup(() => {
           const el = document.createElement('div');
@@ -90,6 +105,11 @@ export default function CongestMap({ areas }: Props) {
         })
         .addTo(layerRef.current!);
     }
+
+    // 초기 레이블 상태 적용
+    document.querySelectorAll('.area-label').forEach((el) => {
+      (el as HTMLElement).style.display = showLabel ? '' : 'none';
+    });
   }, [areas]);
 
   return (
