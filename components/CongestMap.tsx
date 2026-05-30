@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import type { AreaData, CongestLevel } from '@/app/api/citydata/route';
 
 const SEOUL_CENTER: [number, number] = [37.5665, 126.9780];
-const LABEL_ZOOM = 12;
+const LABEL_ZOOM = 11;
 
 const LEVEL_COLOR: Record<CongestLevel, string> = {
   '여유': '#22c55e',
@@ -36,7 +36,7 @@ export default function CongestMap({ areas }: Props) {
     if (!containerRef.current || mapRef.current) return;
     const map = L.map(containerRef.current, {
       center: SEOUL_CENTER,
-      zoom: 11,
+      zoom: 12,
       minZoom: 10,
       maxZoom: 16,
       maxBounds: L.latLngBounds(L.latLng(37.25, 126.60), L.latLng(37.80, 127.40)),

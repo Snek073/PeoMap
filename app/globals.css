@@ -8,8 +8,8 @@ body {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: #fff;
-  font-size: 11px;
+  color: #fff !important;
+  font-size: 12px !important;
   font-weight: 700;
   white-space: nowrap;
   text-shadow: 0 0 4px #000, 0 0 4px #000, 0 1px 3px rgba(0,0,0,0.9);
