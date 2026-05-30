@@ -1,0 +1,100 @@
+import { NextResponse } from 'next/server';
+
+export type CongestLevel = '여유' | '보통' | '약간붐빔' | '붐빔';
+
+export interface AreaData {
+  name: string;
+  level: CongestLevel;
+  min: number;
+  max: number;
+  lat: number;
+  lng: number;
+  updatedAt: string;
+}
+
+const COORDS: Record<string, [number, number]> = {
+  '강남역': [37.4979, 127.0276],
+  '강남 COEX': [37.5124, 127.0593],
+  '압구정로데오': [37.5269, 127.0391],
+  '잠실': [37.5133, 127.1000],
+  '잠실한강공원': [37.5119, 127.0785],
+  '석촌호수': [37.5075, 127.1009],
+  '홍대입구역': [37.5571, 126.9245],
+  '신촌·연세대': [37.5596, 126.9388],
+  '합정역': [37.5499, 126.9151],
+  '망원한강공원': [37.5556, 126.9040],
+  '광화문·덕수궁': [37.5760, 126.9768],
+  '종로·청계': [37.5702, 126.9876],
+  '명동': [37.5635, 126.9842],
+  '인사동·낙원': [37.5742, 126.9860],
+  '북촌한옥마을': [37.5820, 126.9829],
+  '경복궁·서촌마을': [37.5795, 126.9741],
+  '창덕궁·종묘': [37.5794, 126.9944],
+  '이태원': [37.5345, 126.9944],
+  '용산역': [37.5298, 126.9645],
+  '성수카페거리': [37.5447, 127.0558],
+  '건대입구역': [37.5403, 127.0699],
+  '왕십리': [37.5617, 127.0373],
+  '여의도': [37.5214, 126.9246],
+  '영등포·타임스퀘어': [37.5158, 126.9072],
+  '동대문 DDP': [37.5659, 127.0095],
+  '서울역': [37.5558, 126.9723],
+  '뚝섬한강공원': [37.5270, 127.0697],
+  '반포한강공원': [37.5082, 127.0055],
+  '여의도한강공원': [37.5284, 126.9325],
+  '청량리': [37.5802, 127.0459],
+  '상봉역': [37.5980, 127.0828],
+  '천호·강동': [37.5385, 127.1240],
+  '수유역': [37.6384, 127.0255],
+  '노원역': [37.6560, 127.0564],
+  '신림역': [37.4843, 126.9293],
+  '서울대입구역': [37.4813, 126.9527],
+  '사당역': [37.4765, 126.9816],
+  '고속터미널': [37.5048, 127.0046],
+  '강동역': [37.5356, 127.1313],
+  '가산디지털단지역': [37.4815, 126.8825],
+  '신도림역': [37.5085, 126.8911],
+  '도봉산역': [37.6909, 127.0479],
+  '창동역': [37.6528, 127.0473],
+  '상암월드컵경기장': [37.5683, 126.8974],
+  '서울숲': [37.5447, 127.0374],
+  '낙산공원·이화마을': [37.5797, 127.0048],
+  '대학로': [37.5828, 127.0020],
+  '동묘앞': [37.5718, 127.0156],
+  '고려대역': [37.5891, 127.0277],
+  '이화여대': [37.5620, 126.9483],
+};
+
+export async function GET() {
+  const key = process.env.SEOUL_API_KEY;
+  if (!key) return NextResponse.json([], { status: 200 });
+
+  try {
+    const res = await fetch(
+      `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/116/`,
+      { next: { revalidate: 300 } }
+    );
+    const json = await res.json();
+    const rows: Record<string, string>[] = json['SeoulRtd.citydata_ppltn']?.row ?? [];
+
+    const data: AreaData[] = rows
+      .map((row) => {
+        const coords = COORDS[row.AREA_NM];
+        if (!coords) return null;
+        return {
+          name: row.AREA_NM,
+          level: row.AREA_CONGEST_LVL as CongestLevel,
+          min: Number(row.AREA_PPLTN_MIN) || 0,
+          max: Number(row.AREA_PPLTN_MAX) || 0,
+          lat: coords[0],
+          lng: coords[1],
+          updatedAt: row.PPLTN_TIME,
+        };
+      })
+      .filter((v): v is AreaData => v !== null);
+
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json([], { status: 500 });
+  }
+}

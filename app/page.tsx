@@ -1,10 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
+import { useEffect, useState, useCallback } from 'react';
+import type { AreaData, CongestLevel } from './api/citydata/route';
 
-const HeatMap = dynamic(() => import('../components/HeatMap'), {
+const CongestMap = dynamic(() => import('../components/CongestMap'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full flex items-center justify-center bg-[#0D1117]">
@@ -16,128 +16,61 @@ const HeatMap = dynamic(() => import('../components/HeatMap'), {
   ),
 });
 
-interface Ping {
-  lat: number;
-  lng: number;
-}
+const LEVEL_ORDER: Record<CongestLevel, number> = {
+  '붐빔': 4, '약간붐빔': 3, '보통': 2, '여유': 1,
+};
 
-interface RegionStat {
-  label: string;
-  count: number;
-  lat: number;
-  lng: number;
-}
-
-const ACTIVE_MINUTES = 30;
-const PING_KEY = 'peomap_pinged_at';
-
-function coordToLabel(lat: number, lng: number): string {
-  if (lat >= 37.4 && lat <= 37.7 && lng >= 126.8 && lng <= 127.2) return '서울';
-  if (lat >= 37.3 && lat <= 37.6 && lng >= 126.6 && lng <= 127.0) return '인천';
-  if (lat >= 37.3 && lat <= 38.0 && lng >= 127.0 && lng <= 127.8) return '경기도';
-  if (lat >= 35.8 && lat <= 36.0 && lng >= 128.5 && lng <= 128.7) return '대구';
-  if (lat >= 35.1 && lat <= 35.2 && lng >= 129.0 && lng <= 129.2) return '부산';
-  if (lat >= 36.3 && lat <= 36.5 && lng >= 127.3 && lng <= 127.5) return '대전';
-  if (lat >= 35.1 && lat <= 35.2 && lng >= 126.8 && lng <= 127.0) return '광주';
-  if (lat >= 35.5 && lat <= 36.5 && lng >= 128.0 && lng <= 129.5) return '경상북도';
-  if (lat >= 34.8 && lat <= 35.5 && lng >= 128.0 && lng <= 129.5) return '경상남도';
-  if (lat >= 34.0 && lat <= 35.0 && lng >= 126.0 && lng <= 127.5) return '전라남도';
-  if (lat >= 35.5 && lat <= 36.5 && lng >= 126.5 && lng <= 128.0) return '전라북도';
-  if (lat >= 36.5 && lat <= 37.5 && lng >= 127.5 && lng <= 129.5) return '충청북도';
-  if (lat >= 36.0 && lat <= 37.2 && lng >= 126.3 && lng <= 127.5) return '충청남도';
-  if (lat >= 37.0 && lat <= 38.6 && lng >= 127.5 && lng <= 129.5) return '강원도';
-  if (lat >= 33.0 && lat <= 33.7 && lng >= 126.0 && lng <= 127.0) return '제주';
-  return `${lat.toFixed(1)}°N ${lng.toFixed(1)}°E`;
-}
-
-function buildRegionStats(pings: Ping[]): RegionStat[] {
-  const grid: Record<string, { lat: number; lng: number; count: number }> = {};
-  for (const p of pings) {
-    const key = `${p.lat.toFixed(2)},${p.lng.toFixed(2)}`;
-    if (!grid[key]) grid[key] = { lat: p.lat, lng: p.lng, count: 0 };
-    grid[key].count++;
-  }
-  return Object.values(grid)
-    .map((g) => ({ label: coordToLabel(g.lat, g.lng), count: g.count, lat: g.lat, lng: g.lng }))
-    .sort((a, b) => b.count - a.count);
-}
+const LEVEL_COLOR: Record<CongestLevel, string> = {
+  '여유': '#22c55e',
+  '보통': '#eab308',
+  '약간붐빔': '#f97316',
+  '붐빔': '#ef4444',
+};
 
 export default function Home() {
-  const [pings, setPings] = useState<Ping[]>([]);
-  const [regions, setRegions] = useState<RegionStat[]>([]);
+  const [areas, setAreas] = useState<AreaData[]>([]);
+  const [updatedAt, setUpdatedAt] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchPings = useCallback(async () => {
-    const since = new Date(Date.now() - ACTIVE_MINUTES * 60 * 1000).toISOString();
-    const { data } = await supabase
-      .from('location_pings')
-      .select('lat, lng')
-      .gte('created_at', since)
-      .gte('lat', 33.0).lte('lat', 38.9)
-      .gte('lng', 124.5).lte('lng', 130.0)
-      .limit(5000);
-    if (data) {
-      setPings(data);
-      setRegions(buildRegionStats(data));
-    }
-  }, []);
-
-  const maybePing = useCallback(() => {
-    const lastPing = localStorage.getItem(PING_KEY);
-    const now = Date.now();
-    if (!lastPing || now - parseInt(lastPing) > ACTIVE_MINUTES * 60 * 1000) {
-      fetch('/api/ping', { method: 'POST' })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.ok) localStorage.setItem(PING_KEY, Date.now().toString());
-        })
-        .catch(() => {});
-    }
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/citydata');
+      const data: AreaData[] = await res.json();
+      const sorted = data.sort((a, b) => LEVEL_ORDER[b.level] - LEVEL_ORDER[a.level]);
+      setAreas(sorted);
+      if (sorted[0]) setUpdatedAt(sorted[0].updatedAt);
+    } catch {}
   }, []);
 
   useEffect(() => {
-    fetchPings();
-    maybePing();
-    timerRef.current = setInterval(() => {
-      maybePing();
-      fetchPings();
-    }, ACTIVE_MINUTES * 60 * 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
+    fetchData();
+    const timer = setInterval(fetchData, 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [fetchData]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel('realtime_pings')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_pings' }, fetchPings)
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [fetchPings]);
-
-  const heatPoints = pings.map((p) => ({ lat: p.lat, lng: p.lng }));
-  const topRegions = regions.slice(0, 20);
-  const maxCount = topRegions[0]?.count ?? 1;
+  const crowded = areas.filter((a) => a.level === '붐빔').length;
 
   return (
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
       <div className="flex-1 relative">
-        <HeatMap points={heatPoints} totalUsers={pings.length} />
+        <CongestMap areas={areas} />
+
+        {/* 상단 뱃지 */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-5 py-2 flex items-center gap-3">
+          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+          <span className="text-white font-semibold text-sm">서울 실시간 혼잡도</span>
+          {areas.length > 0 && (
+            <span className="text-orange-400 font-bold text-sm">붐빔 {crowded}곳</span>
+          )}
+        </div>
 
         {/* 범례 */}
         <div className="absolute bottom-8 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-xl p-3 space-y-1.5">
-          <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wider mb-2">밀도</p>
-          {[
-            { color: '#0033ff', label: '낮음' },
-            { color: '#00cc66', label: '보통' },
-            { color: '#ffcc00', label: '높음' },
-            { color: '#ff6600', label: '매우 높음' },
-            { color: '#ff0000', label: '극도로 높음' },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-              <span className="text-gray-300 text-xs">{item.label}</span>
+          <p className="text-gray-400 text-[10px] font-semibold uppercase tracking-wider mb-2">혼잡도</p>
+          {(['여유', '보통', '약간붐빔', '붐빔'] as CongestLevel[]).map((level) => (
+            <div key={level} className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: LEVEL_COLOR[level] }} />
+              <span className="text-gray-300 text-xs">{level}</span>
             </div>
           ))}
         </div>
@@ -151,52 +84,44 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 통계 사이드바 */}
+      {/* 사이드바 */}
       {sidebarOpen && (
         <div className="w-72 bg-[#161B22] border-l border-[#21262D] flex flex-col overflow-hidden">
           <div className="p-4 border-b border-[#21262D]">
-            <h2 className="text-white font-bold text-base">📊 지역별 현황</h2>
+            <h2 className="text-white font-bold text-base">📊 지역별 혼잡도</h2>
             <p className="text-orange-400 text-sm mt-1 font-semibold">
-              최근 {ACTIVE_MINUTES}분 · {pings.length.toLocaleString()}명 활성
+              총 {areas.length}개 지역 모니터링
             </p>
-            <p className="text-gray-500 text-xs mt-0.5">
-              {new Date().toLocaleTimeString('ko-KR')} 기준
-            </p>
+            {updatedAt && (
+              <p className="text-gray-500 text-xs mt-0.5">{updatedAt} 기준</p>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {topRegions.length === 0 ? (
-              <div className="text-center py-12 space-y-2">
-                <p className="text-gray-400 text-sm">아직 데이터가 없습니다</p>
-                <p className="text-gray-600 text-xs">방문자 위치가 자동으로 표시됩니다</p>
+            {areas.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-gray-400 text-sm">데이터 불러오는 중...</p>
               </div>
             ) : (
-              topRegions.map((region, idx) => {
-                const pct = (region.count / maxCount) * 100;
-                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
-                return (
-                  <div
-                    key={`${region.lat}-${region.lng}`}
-                    className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D] space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-gray-500 w-5">
-                          {medal ?? `${idx + 1}`}
-                        </span>
-                        <span className="text-white text-sm font-medium">{region.label}</span>
-                      </div>
-                      <span className="text-orange-400 text-sm font-bold">{region.count}명</span>
+              areas.map((area, idx) => (
+                <div key={area.name} className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-gray-500 w-5">{idx + 1}</span>
+                      <span className="text-white text-sm font-medium">{area.name}</span>
                     </div>
-                    <div className="h-1.5 bg-[#21262D] rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-orange-500 rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: LEVEL_COLOR[area.level], backgroundColor: `${LEVEL_COLOR[area.level]}22` }}
+                    >
+                      {area.level}
+                    </span>
                   </div>
-                );
-              })
+                  <p className="text-gray-500 text-xs mt-1 pl-6">
+                    {area.min.toLocaleString()}~{area.max.toLocaleString()}명
+                  </p>
+                </div>
+              ))
             )}
           </div>
         </div>
