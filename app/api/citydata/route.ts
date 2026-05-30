@@ -67,7 +67,16 @@ const COORDS: Record<string, [number, number]> = {
 
 export async function GET() {
   const key = process.env.SEOUL_API_KEY;
-  if (!key) return NextResponse.json([], { status: 500 });
+  if (!key) return NextResponse.json({ error: 'no key' }, { status: 500 });
+
+  // 임시 단일 테스트
+  const res = await fetch(
+    `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${encodeURIComponent('강남역')}`,
+    { cache: 'no-store' }
+  );
+  const raw = await res.json();
+  const row = raw['SeoulRtd.citydata_ppltn']?.row?.[0];
+  return NextResponse.json({ raw, row, keys: Object.keys(raw) });
 
   const results = await Promise.allSettled(
     Object.entries(COORDS).map(async ([name, [lat, lng]]) => {
