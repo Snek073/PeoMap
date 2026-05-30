@@ -62,14 +62,26 @@ export default function CongestMap({ areas }: Props) {
         fillOpacity: 0.75,
         weight: 1,
       })
-        .bindPopup(
-          `<div style="font-family:sans-serif;min-width:130px">
-            <strong>${area.name}</strong><br/>
-            <span style="color:${color}">${area.level}</span><br/>
-            ${area.min.toLocaleString()}~${area.max.toLocaleString()}명<br/>
-            <small style="color:#999">${area.updatedAt}</small>
-          </div>`
-        )
+        .bindPopup(() => {
+          const el = document.createElement('div');
+          el.style.cssText = 'font-family:sans-serif;min-width:130px';
+          const name = document.createElement('strong');
+          name.textContent = area.name;
+          const br1 = document.createElement('br');
+          const lvl = document.createElement('span');
+          lvl.style.color = color;
+          lvl.textContent = area.level;
+          const br2 = document.createElement('br');
+          const pop = document.createTextNode(
+            `${area.min.toLocaleString()}~${area.max.toLocaleString()}명`
+          );
+          const br3 = document.createElement('br');
+          const time = document.createElement('small');
+          time.style.color = '#999';
+          time.textContent = area.updatedAt;
+          el.append(name, br1, lvl, br2, pop, br3, time);
+          return el;
+        })()
         .addTo(layerRef.current!);
     }
   }, [areas]);
