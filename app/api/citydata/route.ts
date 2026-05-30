@@ -65,9 +65,19 @@ const COORDS: Record<string, [number, number]> = {
   '이화여대': [37.5620, 126.9483],
 };
 
-export async function GET() {
+export async function GET(req: Request) {
   const key = process.env.SEOUL_API_KEY;
   if (!key) return NextResponse.json([], { status: 500 });
+
+  // 배치 테스트
+  if (new URL(req.url).searchParams.get('test') === '1') {
+    const res = await fetch(
+      `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/20/`,
+      { cache: 'no-store' }
+    );
+    const json = await res.json();
+    return NextResponse.json(json);
+  }
 
   const results = await Promise.allSettled(
     Object.entries(COORDS).map(async ([name, [lat, lng]]) => {
