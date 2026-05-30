@@ -71,22 +71,28 @@ export async function GET() {
 
   const results = await Promise.allSettled(
     Object.entries(COORDS).map(async ([name, [lat, lng]]) => {
-      const res = await fetch(
-        `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${encodeURIComponent(name)}`,
-        { next: { revalidate: 300 } }
-      );
-      const json = await res.json();
-      const row = json['SeoulRtd.citydata_ppltn']?.row?.[0];
-      if (!row) return null;
-      return {
-        name: row.AREA_NM,
-        level: row.AREA_CONGEST_LVL as CongestLevel,
-        min: Number(row.AREA_PPLTN_MIN) || 0,
-        max: Number(row.AREA_PPLTN_MAX) || 0,
-        lat,
-        lng,
-        updatedAt: row.PPLTN_TIME,
-      } satisfies AreaData;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        const res = await fetch(
+          `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${encodeURIComponent(name)}`,
+          { cache: 'no-store', signal: controller.signal }
+        );
+        const json = await res.json();
+        const row = json['SeoulRtd.citydata_ppltn']?.row?.[0];
+        if (!row) return null;
+        return {
+          name: row.AREA_NM,
+          level: row.AREA_CONGEST_LVL as CongestLevel,
+          min: Number(row.AREA_PPLTN_MIN) || 0,
+          max: Number(row.AREA_PPLTN_MAX) || 0,
+          lat,
+          lng,
+          updatedAt: row.PPLTN_TIME,
+        } satisfies AreaData;
+      } finally {
+        clearTimeout(timer);
+      }
     })
   );
 
