@@ -81,7 +81,7 @@ export default function CongestMap({ areas }: Props) {
           time.textContent = area.updatedAt;
           el.append(name, br1, lvl, br2, pop, br3, time);
           return el;
-        })()
+        })
         .addTo(layerRef.current!);
     }
   }, [areas]);
