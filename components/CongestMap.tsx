@@ -62,6 +62,12 @@ export default function CongestMap({ areas }: Props) {
         fillOpacity: 0.75,
         weight: 1,
       })
+        .bindTooltip(area.name, {
+          permanent: true,
+          direction: 'right',
+          className: 'area-label',
+          offset: [radius(area.min, area.max) + 4, 0],
+        })
         .bindPopup(() => {
           const el = document.createElement('div');
           el.style.cssText = 'font-family:sans-serif;min-width:130px';
