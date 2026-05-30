@@ -86,5 +86,12 @@ export default function CongestMap({ areas }: Props) {
     }
   }, [areas]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      <div ref={containerRef} className="w-full h-full" />
+      <div className="absolute bottom-2 left-2 z-[1000] text-[10px] text-gray-500">
+        서울특별시 공공데이터 활용
+      </div>
+    </div>
+  );
 }
