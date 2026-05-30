@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
-// Leaflet은 SSR 불가 → 클라이언트 전용 렌더링
 const HeatMap = dynamic(() => import('../components/HeatMap'), {
   ssr: false,
   loading: () => (
@@ -30,11 +29,7 @@ interface RegionStat {
 }
 
 const ACTIVE_MINUTES = 30;
-const PING_INTERVAL_MS = 10 * 60 * 1000;
-
-function roundCoord(v: number, d = 3) {
-  return Math.round(v * 10 ** d) / 10 ** d;
-}
+const PING_KEY = 'peomap_pinged_at';
 
 function coordToLabel(lat: number, lng: number): string {
   if (lat >= 37.4 && lat <= 37.7 && lng >= 126.8 && lng <= 127.2) return '서울';
@@ -70,10 +65,8 @@ function buildRegionStats(pings: Ping[]): RegionStat[] {
 export default function Home() {
   const [pings, setPings] = useState<Ping[]>([]);
   const [regions, setRegions] = useState<RegionStat[]>([]);
-  const [status, setStatus] = useState<'idle' | 'sharing' | 'denied' | 'error'>('idle');
-  const [lastPingTime, setLastPingTime] = useState<Date | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchPings = useCallback(async () => {
     const since = new Date(Date.now() - ACTIVE_MINUTES * 60 * 1000).toISOString();
@@ -90,38 +83,31 @@ export default function Home() {
     }
   }, []);
 
-  const sendPing = useCallback(async () => {
-    if (!navigator.geolocation) return;
-    setStatus('sharing');
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const lat = roundCoord(pos.coords.latitude);
-        const lng = roundCoord(pos.coords.longitude);
-        if (lat < 33.0 || lat > 38.9 || lng < 124.5 || lng > 130.0) {
-          setStatus('idle');
-          return;
-        }
-        await supabase.from('location_pings').insert({ lat, lng });
-        setLastPingTime(new Date());
-        setStatus('sharing');
-        fetchPings();
-      },
-      () => setStatus('denied'),
-      { enableHighAccuracy: false, timeout: 8000 },
-    );
-  }, [fetchPings]);
+  const maybePing = useCallback(() => {
+    const lastPing = localStorage.getItem(PING_KEY);
+    const now = Date.now();
+    if (!lastPing || now - parseInt(lastPing) > ACTIVE_MINUTES * 60 * 1000) {
+      fetch('/api/ping', { method: 'POST' })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok) localStorage.setItem(PING_KEY, Date.now().toString());
+        })
+        .catch(() => {});
+    }
+  }, []);
 
-  // 초기 로드 + 자동 핑
   useEffect(() => {
     fetchPings();
-    sendPing();
-    pingTimer.current = setInterval(sendPing, PING_INTERVAL_MS);
+    maybePing();
+    timerRef.current = setInterval(() => {
+      maybePing();
+      fetchPings();
+    }, ACTIVE_MINUTES * 60 * 1000);
     return () => {
-      if (pingTimer.current) clearInterval(pingTimer.current);
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Supabase Realtime 구독
   useEffect(() => {
     const ch = supabase
       .channel('realtime_pings')
@@ -136,33 +122,8 @@ export default function Home() {
 
   return (
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
-      {/* 지도 영역 */}
       <div className="flex-1 relative">
         <HeatMap points={heatPoints} totalUsers={pings.length} />
-
-        {/* 위치 공유 버튼 */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] flex flex-col items-center gap-2">
-          {lastPingTime && (
-            <span className="text-xs text-gray-400 bg-black/60 px-3 py-1 rounded-full">
-              마지막 공유: {lastPingTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          )}
-          <button
-            onClick={sendPing}
-            disabled={status === 'denied'}
-            className={`
-              px-8 py-3 rounded-full font-bold text-white text-sm
-              shadow-[0_4px_24px_rgba(255,107,53,0.4)]
-              transition-all duration-200 active:scale-95
-              ${status === 'denied'
-                ? 'bg-gray-700 cursor-not-allowed shadow-none'
-                : 'bg-orange-500 hover:bg-orange-400 cursor-pointer'
-              }
-            `}
-          >
-            {status === 'denied' ? '🔒 위치 권한이 거부됨' : '📍 지금 위치 공유'}
-          </button>
-        </div>
 
         {/* 범례 */}
         <div className="absolute bottom-8 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-xl p-3 space-y-1.5">
@@ -181,7 +142,7 @@ export default function Home() {
           ))}
         </div>
 
-        {/* 사이드바 토글 버튼 */}
+        {/* 사이드바 토글 */}
         <button
           onClick={() => setSidebarOpen((v) => !v)}
           className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-2 text-white hover:bg-white/10 transition-colors"
@@ -207,7 +168,7 @@ export default function Home() {
             {topRegions.length === 0 ? (
               <div className="text-center py-12 space-y-2">
                 <p className="text-gray-400 text-sm">아직 데이터가 없습니다</p>
-                <p className="text-gray-600 text-xs">위치를 공유하면 지도에 표시됩니다</p>
+                <p className="text-gray-600 text-xs">방문자 위치가 자동으로 표시됩니다</p>
               </div>
             ) : (
               topRegions.map((region, idx) => {
