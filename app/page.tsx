@@ -81,6 +81,8 @@ export default function Home() {
       .from('location_pings')
       .select('lat, lng')
       .gte('created_at', since)
+      .gte('lat', 33.0).lte('lat', 38.9)
+      .gte('lng', 124.5).lte('lng', 130.0)
       .limit(5000);
     if (data) {
       setPings(data);
@@ -95,6 +97,10 @@ export default function Home() {
       async (pos) => {
         const lat = roundCoord(pos.coords.latitude);
         const lng = roundCoord(pos.coords.longitude);
+        if (lat < 33.0 || lat > 38.9 || lng < 124.5 || lng > 130.0) {
+          setStatus('idle');
+          return;
+        }
         await supabase.from('location_pings').insert({ lat, lng });
         setLastPingTime(new Date());
         setStatus('sharing');

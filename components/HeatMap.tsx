@@ -24,7 +24,11 @@ interface HeatMapProps {
   totalUsers: number;
 }
 
-const KOREA_CENTER: [number, number] = [36.5, 127.8];
+const SEOUL_CENTER: [number, number] = [37.5665, 126.9780];
+const KOREA_BOUNDS = L.latLngBounds(
+  L.latLng(33.0, 124.5),
+  L.latLng(38.9, 130.0),
+);
 
 export default function HeatMap({ points, totalUsers }: HeatMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -36,10 +40,13 @@ export default function HeatMap({ points, totalUsers }: HeatMapProps) {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: KOREA_CENTER,
-      zoom: 7,
+      center: SEOUL_CENTER,
+      zoom: 11,
       zoomControl: true,
       attributionControl: true,
+      maxBounds: KOREA_BOUNDS,
+      maxBoundsViscosity: 1.0,
+      minZoom: 7,
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
