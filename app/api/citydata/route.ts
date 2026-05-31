@@ -88,26 +88,16 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
 
-  // ?test=1 — 기존 키로 API 전체 지역명 확인
-  // ?test=2 — 새 키(SEOUL_PPLTN_KEY)로 전체 지역명 확인
-  const testParam = searchParams.get('test');
-  if (testParam === '1' || testParam === '2') {
-    const testKey = testParam === '2' ? (process.env.SEOUL_PPLTN_KEY ?? key) : key;
-    const startIndices = [1, 21, 41, 61, 81, 101];
-    const pages = await Promise.allSettled(
-      startIndices.map(async (start) => {
-        const res = await fetch(
-          `http://openapi.seoul.go.kr:8088/${testKey}/json/citydata_ppltn/${start}/${start + 19}/`,
-          { cache: 'no-store' }
-        );
-        return res.json();
-      })
+  // ?test=2 — 새 키(SEOUL_PPLTN_KEY)가 citydata_ppltn 엔드포인트에서 동작하는지 확인
+  if (searchParams.get('test') === '2') {
+    const ppltnKey = process.env.SEOUL_PPLTN_KEY ?? key;
+    const testArea = '광화문·덕수궁';
+    const res = await fetch(
+      `http://openapi.seoul.go.kr:8088/${ppltnKey}/json/citydata_ppltn/1/1/${encodeURIComponent(testArea)}`,
+      { cache: 'no-store' }
     );
-    const allAreas = pages
-      .filter((r): r is PromiseFulfilledResult<{ 'SeoulRtd.citydata_ppltn'?: { AREA_NM: string }[] }> => r.status === 'fulfilled')
-      .flatMap((r) => r.value['SeoulRtd.citydata_ppltn'] ?? [])
-      .map((row) => row.AREA_NM);
-    return NextResponse.json({ count: allAreas.length, areas: allAreas });
+    const json = await res.json();
+    return NextResponse.json({ keyUsed: ppltnKey.slice(0, 6) + '...', raw: json });
   }
 
   const results = await Promise.allSettled(
