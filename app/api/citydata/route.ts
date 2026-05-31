@@ -82,48 +82,58 @@ const COORDS: Record<string, [number, number]> = {
   '서울대입구역': [37.4813, 126.9527],
 };
 
+async function fetchArea(key: string, name: string, lat: number, lng: number): Promise<AreaData | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(
+      `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${encodeURIComponent(name)}`,
+      { cache: 'no-store', signal: controller.signal }
+    );
+    const json = await res.json();
+    const row = json['SeoulRtd.citydata_ppltn']?.[0];
+    if (!row) return null;
+    return {
+      name: row.AREA_NM,
+      level: (row.AREA_CONGEST_LVL as string).replace(/\s+/g, '') as CongestLevel,
+      min: Number(row.AREA_PPLTN_MIN) || 0,
+      max: Number(row.AREA_PPLTN_MAX) || 0,
+      lat,
+      lng,
+      updatedAt: row.PPLTN_TIME,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function GET(req: Request) {
   const key = process.env.SEOUL_API_KEY;
   if (!key) return NextResponse.json([], { status: 500 });
 
   const { searchParams } = new URL(req.url);
+  const ppltnKey = process.env.SEOUL_PPLTN_KEY;
 
   // ?test=2 — 새 키(SEOUL_PPLTN_KEY)가 citydata_ppltn 엔드포인트에서 동작하는지 확인
   if (searchParams.get('test') === '2') {
-    const ppltnKey = process.env.SEOUL_PPLTN_KEY ?? key;
-    const testArea = '광화문·덕수궁';
+    const testKey = ppltnKey ?? key;
     const res = await fetch(
-      `http://openapi.seoul.go.kr:8088/${ppltnKey}/json/citydata_ppltn/1/1/${encodeURIComponent(testArea)}`,
+      `http://openapi.seoul.go.kr:8088/${testKey}/json/citydata_ppltn/1/1/${encodeURIComponent('광화문·덕수궁')}`,
       { cache: 'no-store' }
     );
     const json = await res.json();
-    return NextResponse.json({ keyUsed: ppltnKey.slice(0, 6) + '...', raw: json });
+    return NextResponse.json({ keyUsed: testKey.slice(0, 6) + '...', raw: json });
   }
 
   const results = await Promise.allSettled(
     Object.entries(COORDS).map(async ([name, [lat, lng]]) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5000);
-      try {
-        const res = await fetch(
-          `http://openapi.seoul.go.kr:8088/${key}/json/citydata_ppltn/1/1/${encodeURIComponent(name)}`,
-          { cache: 'no-store', signal: controller.signal }
-        );
-        const json = await res.json();
-        const row = json['SeoulRtd.citydata_ppltn']?.[0];
-        if (!row) return null;
-        return {
-          name: row.AREA_NM,
-          level: row.AREA_CONGEST_LVL as CongestLevel,
-          min: Number(row.AREA_PPLTN_MIN) || 0,
-          max: Number(row.AREA_PPLTN_MAX) || 0,
-          lat,
-          lng,
-          updatedAt: row.PPLTN_TIME,
-        } satisfies AreaData;
-      } finally {
-        clearTimeout(timer);
+      // 기본 키로 먼저 시도, 실패하면 OA-21778 키로 재시도
+      const primary = await fetchArea(key, name, lat, lng);
+      if (primary) return primary;
+      if (ppltnKey && ppltnKey !== key) {
+        return fetchArea(ppltnKey, name, lat, lng);
       }
+      return null;
     })
   );
 
