@@ -61,8 +61,6 @@ export default function Home() {
     });
   }, [areas, filterLevel, search]);
 
-  const crowded = areas.filter((a) => a.level === '붐빔').length;
-
   return (
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
       {/* 지도 */}
@@ -73,9 +71,6 @@ export default function Home() {
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 whitespace-nowrap">
           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
           <span className="text-white font-semibold text-xs sm:text-sm">서울 실시간 혼잡도</span>
-          {areas.length > 0 && (
-            <span className="text-orange-400 font-bold text-xs sm:text-sm">붐빔 {crowded}곳</span>
-          )}
         </div>
 
         {/* 범례 + 필터 버튼 */}
@@ -84,13 +79,13 @@ export default function Home() {
             <button
               key={level}
               onClick={() => setFilterLevel(filterLevel === level ? null : level)}
-              className={`flex items-center gap-1.5 w-full rounded px-1 py-0.5 transition-colors ${filterLevel === level ? 'bg-white/10' : 'hover:bg-white/5'}`}
+              className={`flex items-center gap-1.5 w-full rounded px-2 py-1.5 transition-colors active:bg-white/20 ${filterLevel === level ? 'bg-white/10' : 'hover:bg-white/5'}`}
             >
               <div
-                className="w-2.5 h-2.5 rounded-full shrink-0"
+                className="w-3 h-3 rounded-full shrink-0"
                 style={{ backgroundColor: LEVEL_COLOR[level], opacity: filterLevel && filterLevel !== level ? 0.3 : 1 }}
               />
-              <span className={`text-[10px] ${filterLevel && filterLevel !== level ? 'text-gray-600' : 'text-gray-300'}`}>
+              <span className={`text-xs ${filterLevel && filterLevel !== level ? 'text-gray-600' : 'text-gray-300'}`}>
                 {level}
               </span>
             </button>
@@ -108,7 +103,7 @@ export default function Home() {
         {/* 사이드바 토글 버튼 */}
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3 text-white hover:bg-white/10 transition-colors"
+          className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 text-white hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation"
           aria-label="지역 목록 열기"
         >
           📊
