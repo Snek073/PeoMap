@@ -114,15 +114,30 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const ppltnKey = process.env.SEOUL_PPLTN_KEY;
 
-  // ?test=2 — 새 키(SEOUL_PPLTN_KEY)가 citydata_ppltn 엔드포인트에서 동작하는지 확인
-  if (searchParams.get('test') === '2') {
+  // ?test=3 — POI 코드(POI001~POI130)로 조회해서 전체 지역명 확인
+  if (searchParams.get('test') === '3') {
     const testKey = ppltnKey ?? key;
-    const res = await fetch(
-      `http://openapi.seoul.go.kr:8088/${testKey}/json/citydata_ppltn/1/1/${encodeURIComponent('광화문·덕수궁')}`,
-      { cache: 'no-store' }
+    const codes = Array.from({ length: 130 }, (_, i) => `POI${String(i + 1).padStart(3, '0')}`);
+    const results = await Promise.allSettled(
+      codes.map(async (code) => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+        try {
+          const res = await fetch(
+            `http://openapi.seoul.go.kr:8088/${testKey}/json/citydata_ppltn/1/1/${code}`,
+            { cache: 'no-store', signal: controller.signal }
+          );
+          const json = await res.json();
+          const row = json['SeoulRtd.citydata_ppltn']?.[0];
+          return row ? { code, name: row.AREA_NM, level: (row.AREA_CONGEST_LVL as string).replace(/\s+/g, '') } : null;
+        } finally { clearTimeout(timer); }
+      })
     );
-    const json = await res.json();
-    return NextResponse.json({ keyUsed: testKey.slice(0, 6) + '...', raw: json });
+    const areas = results
+      .filter((r): r is PromiseFulfilledResult<{ code: string; name: string; level: string } | null> => r.status === 'fulfilled')
+      .map(r => r.value)
+      .filter((v): v is { code: string; name: string; level: string } => v !== null);
+    return NextResponse.json({ count: areas.length, areas });
   }
 
   const results = await Promise.allSettled(
