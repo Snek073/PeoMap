@@ -3,10 +3,13 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
 import type { AreaData, CongestLevel } from '@/app/api/citydata/route';
 
 const SEOUL_CENTER: [number, number] = [37.5665, 126.9780];
-const LABEL_ZOOM = 11;
+const LABEL_ZOOM = 12;
 
 const LEVEL_COLOR: Record<CongestLevel, string> = {
   '여유': '#22c55e',
@@ -17,10 +20,17 @@ const LEVEL_COLOR: Record<CongestLevel, string> = {
 
 function radius(min: number, max: number) {
   const avg = (min + max) / 2;
-  if (avg > 100000) return 22;
-  if (avg > 50000) return 17;
-  if (avg > 20000) return 13;
-  return 10;
+  if (avg > 100000) return 20;
+  if (avg > 50000) return 15;
+  if (avg > 20000) return 11;
+  return 8;
+}
+
+function worstLevel(levels: string[]): CongestLevel {
+  if (levels.includes('붐빔')) return '붐빔';
+  if (levels.includes('약간붐빔')) return '약간붐빔';
+  if (levels.includes('보통')) return '보통';
+  return '여유';
 }
 
 interface Props {
@@ -30,7 +40,8 @@ interface Props {
 export default function CongestMap({ areas }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const clusterRef = useRef<any>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -38,19 +49,40 @@ export default function CongestMap({ areas }: Props) {
       center: SEOUL_CENTER,
       zoom: 12,
       minZoom: 10,
-      maxZoom: 16,
-      maxBounds: L.latLngBounds(L.latLng(37.25, 126.60), L.latLng(37.80, 127.40)),
+      maxZoom: 17,
+      maxBounds: L.latLngBounds(L.latLng(37.25, 126.60), L.latLng(37.82, 127.45)),
       maxBoundsViscosity: 1.0,
     });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap contributors © CARTO',
       subdomains: 'abcd',
-      maxZoom: 18,
+      maxZoom: 19,
     }).addTo(map);
-    layerRef.current = L.layerGroup().addTo(map);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cluster = (L as any).markerClusterGroup({
+      maxClusterRadius: 70,
+      disableClusteringAtZoom: 12,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      iconCreateFunction: (c: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const levels = c.getAllChildMarkers().map((m: any) => m.options.congestLevel as string);
+        const worst = worstLevel(levels);
+        const color = LEVEL_COLOR[worst];
+        return L.divIcon({
+          html: `<div style="background:${color};color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;border:2px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.6);">${c.getChildCount()}</div>`,
+          className: '',
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
+        });
+      },
+    });
+    cluster.addTo(map);
+    clusterRef.current = cluster;
     mapRef.current = map;
 
-    // 줌 레벨에 따라 레이블 표시/숨김
     const updateLabels = () => {
       const show = map.getZoom() >= LABEL_ZOOM;
       document.querySelectorAll('.area-label').forEach((el) => {
@@ -63,18 +95,23 @@ export default function CongestMap({ areas }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!layerRef.current || !mapRef.current) return;
-    layerRef.current.clearLayers();
+    const cluster = clusterRef.current;
+    if (!cluster || !mapRef.current) return;
+    cluster.clearLayers();
     const showLabel = mapRef.current.getZoom() >= LABEL_ZOOM;
 
     for (const area of areas) {
       const color = LEVEL_COLOR[area.level] ?? '#6b7280';
       const r = radius(area.min, area.max);
-      L.circleMarker([area.lat, area.lng], {
+      const nextCrowded = area.forecast?.find(
+        (f) => f.level === '붐빔' || f.level === '약간붐빔'
+      );
+
+      const marker = L.circleMarker([area.lat, area.lng], {
         radius: r,
         fillColor: color,
         color: '#000',
-        fillOpacity: 0.75,
+        fillOpacity: 0.8,
         weight: 1,
       })
         .bindTooltip(area.name, {
@@ -84,29 +121,66 @@ export default function CongestMap({ areas }: Props) {
           offset: [r + 4, 0],
         })
         .bindPopup(() => {
-          const el = document.createElement('div');
-          el.style.cssText = 'font-family:sans-serif;min-width:130px';
-          const name = document.createElement('strong');
-          name.textContent = area.name;
-          const br1 = document.createElement('br');
+          const wrap = document.createElement('div');
+          wrap.style.cssText = 'font-family:sans-serif;min-width:160px;font-size:13px';
+
+          const title = document.createElement('strong');
+          title.style.cssText = 'display:block;margin-bottom:6px;font-size:14px';
+          title.textContent = area.name;
+
           const lvl = document.createElement('span');
-          lvl.style.color = color;
+          lvl.style.cssText = `display:inline-block;padding:2px 8px;border-radius:12px;font-weight:700;font-size:12px;color:#fff;background:${color};margin-bottom:6px`;
           lvl.textContent = area.level;
-          const br2 = document.createElement('br');
-          const pop = document.createTextNode(
-            `${area.min.toLocaleString()}~${area.max.toLocaleString()}명`
-          );
-          const br3 = document.createElement('br');
-          const time = document.createElement('small');
-          time.style.color = '#999';
-          time.textContent = area.updatedAt;
-          el.append(name, br1, lvl, br2, pop, br3, time);
-          return el;
-        })
-        .addTo(layerRef.current!);
+
+          const pop = document.createElement('p');
+          pop.style.cssText = 'margin:0 0 6px;color:#555;font-size:12px';
+          pop.textContent = `${area.min.toLocaleString()}~${area.max.toLocaleString()}명`;
+
+          wrap.append(title, lvl, pop);
+
+          if (area.forecast?.length > 0) {
+            const fcstTitle = document.createElement('p');
+            fcstTitle.style.cssText = 'margin:0 0 4px;font-weight:600;font-size:12px;color:#333';
+            fcstTitle.textContent = '예측 혼잡도';
+            wrap.appendChild(fcstTitle);
+
+            const table = document.createElement('div');
+            table.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:2px 8px';
+            for (const f of area.forecast) {
+              const timeEl = document.createElement('span');
+              timeEl.style.cssText = 'font-size:11px;color:#666';
+              timeEl.textContent = f.time.slice(11, 16);
+
+              const levelEl = document.createElement('span');
+              levelEl.style.cssText = `font-size:11px;font-weight:600;color:${LEVEL_COLOR[f.level] ?? '#999'}`;
+              levelEl.textContent = f.level;
+
+              table.append(timeEl, levelEl);
+            }
+            wrap.appendChild(table);
+
+            if (nextCrowded) {
+              const warn = document.createElement('p');
+              warn.style.cssText = 'margin:6px 0 0;font-size:11px;color:#f97316;font-weight:600';
+              warn.textContent = `⚠ ${nextCrowded.time.slice(11, 16)} 혼잡 예정`;
+              wrap.appendChild(warn);
+            }
+          }
+
+          const time = document.createElement('p');
+          time.style.cssText = 'margin:6px 0 0;color:#aaa;font-size:10px';
+          time.textContent = `${area.updatedAt} 기준`;
+          wrap.appendChild(time);
+
+          return wrap;
+        });
+
+      // 클러스터 색상 결정용 커스텀 옵션
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (marker.options as any).congestLevel = area.level;
+      cluster.addLayer(marker);
     }
 
-    // 초기 레이블 상태 적용
     document.querySelectorAll('.area-label').forEach((el) => {
       (el as HTMLElement).style.display = showLabel ? '' : 'none';
     });

@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server';
 
 export type CongestLevel = '여유' | '보통' | '약간붐빔' | '붐빔';
 
+export interface ForecastItem {
+  time: string;
+  level: CongestLevel;
+}
+
 export interface AreaData {
   name: string;
   level: CongestLevel;
@@ -10,6 +15,7 @@ export interface AreaData {
   lat: number;
   lng: number;
   updatedAt: string;
+  forecast: ForecastItem[];
 }
 
 // POI 코드 → [lat, lng]
@@ -153,6 +159,15 @@ async function fetchArea(key: string, code: string, lat: number, lng: number): P
     const json = await res.json();
     const row = json['SeoulRtd.citydata_ppltn']?.[0];
     if (!row) return null;
+    const forecast: ForecastItem[] = ((row.FCST_PPLTN as unknown[]) ?? [])
+      .slice(0, 6)
+      .map((f) => {
+        const item = f as Record<string, string>;
+        return {
+          time: item.FCST_TIME,
+          level: item.FCST_CONGEST_LVL.replace(/\s+/g, '') as CongestLevel,
+        };
+      });
     return {
       name: row.AREA_NM,
       level: (row.AREA_CONGEST_LVL as string).replace(/\s+/g, '') as CongestLevel,
@@ -161,6 +176,7 @@ async function fetchArea(key: string, code: string, lat: number, lng: number): P
       lat,
       lng,
       updatedAt: row.PPLTN_TIME,
+      forecast,
     };
   } finally {
     clearTimeout(timer);
