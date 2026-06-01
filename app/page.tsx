@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { AreaData, CongestLevel } from './api/citydata/route';
+import AdBanner from '../components/AdBanner';
 
 const CongestMap = dynamic(() => import('../components/CongestMap'), {
   ssr: false,
@@ -217,6 +218,7 @@ export default function Home() {
                 ))
               )}
             </div>
+            <AdBanner />
           </div>
         </>
       )}
