@@ -218,7 +218,7 @@ export default function Home() {
                 ))
               )}
             </div>
-            <AdBanner />
+            {areas.length > 0 && <AdBanner />}
           </div>
         </>
       )}
