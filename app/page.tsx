@@ -78,6 +78,7 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(false);
+  const [hideYeoyu, setHideYeoyu] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -131,7 +132,10 @@ export default function Home() {
   }, [areas, filterLevel, search]);
 
   const favoriteAreas = useMemo(() => areas.filter(a => favorites.has(a.name)), [areas, favorites]);
-  const normalAreas = useMemo(() => displayAreas.filter(a => !favorites.has(a.name)), [displayAreas, favorites]);
+  const normalAreas = useMemo(
+    () => displayAreas.filter(a => !favorites.has(a.name) && !(hideYeoyu && a.level === '여유')),
+    [displayAreas, favorites, hideYeoyu]
+  );
 
   return (
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
@@ -256,6 +260,17 @@ export default function Home() {
                     {level}
                   </button>
                 ))}
+                <button
+                  onClick={() => setHideYeoyu(v => !v)}
+                  className="px-2 py-1 rounded-full text-[10px] font-bold transition-all"
+                  style={{
+                    color: hideYeoyu ? '#0D1117' : '#6b7280',
+                    backgroundColor: hideYeoyu ? '#6b7280' : 'transparent',
+                    border: `1px solid ${hideYeoyu ? '#6b7280' : '#21262D'}`,
+                  }}
+                >
+                  여유 숨김
+                </button>
                 {(filterLevel || search) && (
                   <button
                     onClick={() => { setFilterLevel(null); setSearch(''); }}
