@@ -30,12 +30,79 @@ const LEVEL_COLOR: Record<CongestLevel, string> = {
 
 const LEVELS: CongestLevel[] = ['붐빔', '약간붐빔', '보통', '여유'];
 
+function AreaCard({ area, idx, isFavorite, onToggle }: {
+  area: AreaData; idx?: number; isFavorite: boolean; onToggle: (name: string) => void;
+}) {
+  return (
+    <div className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D]">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {idx !== undefined && <span className="text-xs text-gray-500 w-5 shrink-0">{idx + 1}</span>}
+          <span className="text-white text-sm font-medium truncate">{area.name}</span>
+        </div>
+        <div className="flex items-center gap-1 shrink-0 ml-1">
+          <button
+            onClick={() => onToggle(area.name)}
+            className="text-base leading-none p-0.5 rounded transition-colors hover:opacity-80"
+            style={{ color: isFavorite ? '#eab308' : '#4b5563' }}
+            aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+          >
+            {isFavorite ? '★' : '☆'}
+          </button>
+          <span
+            className="text-xs font-bold px-2 py-0.5 rounded-full"
+            style={{ color: LEVEL_COLOR[area.level], backgroundColor: `${LEVEL_COLOR[area.level]}22` }}
+          >
+            {area.level}
+          </span>
+        </div>
+      </div>
+      <p className="text-gray-500 text-xs mt-1 pl-6">
+        {area.min.toLocaleString()}~{area.max.toLocaleString()}명
+      </p>
+      {area.forecast?.find(f => f.level === '붐빔' || f.level === '약간붐빔') && area.level === '여유' && (
+        <p className="text-orange-500 text-[10px] mt-1 pl-6">
+          ⚠ {area.forecast.find(f => f.level === '붐빔' || f.level === '약간붐빔')!.time.slice(11, 16)} 혼잡 예정
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [areas, setAreas] = useState<AreaData[]>([]);
   const [updatedAt, setUpdatedAt] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState<CongestLevel | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('peomap_favorites');
+      if (saved) setFavorites(new Set(JSON.parse(saved)));
+    } catch {}
+  }, []);
+
+  const toggleFavorite = useCallback((name: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      try { localStorage.setItem('peomap_favorites', JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleGetLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setUserLocation([pos.coords.latitude, pos.coords.longitude]); setLocationLoading(false); },
+      () => setLocationLoading(false),
+    );
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -53,7 +120,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [fetchData]);
 
-  // 지도 + 사이드바에 공통 적용되는 필터
   const displayAreas = useMemo(() => {
     return areas.filter((a) => {
       if (filterLevel && a.level !== filterLevel) return false;
@@ -62,11 +128,14 @@ export default function Home() {
     });
   }, [areas, filterLevel, search]);
 
+  const favoriteAreas = useMemo(() => displayAreas.filter(a => favorites.has(a.name)), [displayAreas, favorites]);
+  const normalAreas = useMemo(() => displayAreas.filter(a => !favorites.has(a.name)), [displayAreas, favorites]);
+
   return (
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
       {/* 지도 */}
       <div className="flex-1 relative">
-        <CongestMap areas={displayAreas} />
+        <CongestMap areas={displayAreas} userLocation={userLocation} />
 
         {/* 상단 뱃지 */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 whitespace-nowrap">
@@ -108,6 +177,22 @@ export default function Home() {
           aria-label="지역 목록 열기"
         >
           📊
+        </button>
+
+        {/* 내 위치 버튼 */}
+        <button
+          onClick={handleGetLocation}
+          disabled={locationLoading}
+          className="absolute bottom-6 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation disabled:opacity-50"
+          aria-label="내 위치"
+        >
+          {locationLoading ? (
+            <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={userLocation ? '#60a5fa' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="9" strokeOpacity="0.3" />
+            </svg>
+          )}
         </button>
       </div>
 
@@ -191,31 +276,21 @@ export default function Home() {
                   <p className="text-gray-500 text-sm">검색 결과 없음</p>
                 </div>
               ) : (
-                displayAreas.map((area, idx) => (
-                  <div key={area.name} className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D]">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-xs text-gray-500 w-5 shrink-0">{idx + 1}</span>
-                        <span className="text-white text-sm font-medium truncate">{area.name}</span>
-                      </div>
-                      <span
-                        className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ml-1"
-                        style={{ color: LEVEL_COLOR[area.level], backgroundColor: `${LEVEL_COLOR[area.level]}22` }}
-                      >
-                        {area.level}
-                      </span>
-                    </div>
-                    <p className="text-gray-500 text-xs mt-1 pl-6">
-                      {area.min.toLocaleString()}~{area.max.toLocaleString()}명
-                    </p>
-                    {/* 다음 혼잡 예정 표시 */}
-                    {area.forecast?.find(f => f.level === '붐빔' || f.level === '약간붐빔') && area.level === '여유' && (
-                      <p className="text-orange-500 text-[10px] mt-1 pl-6">
-                        ⚠ {area.forecast.find(f => f.level === '붐빔' || f.level === '약간붐빔')!.time.slice(11, 16)} 혼잡 예정
-                      </p>
-                    )}
-                  </div>
-                ))
+                <>
+                  {/* 즐겨찾기 섹션 */}
+                  {favoriteAreas.length > 0 && (
+                    <>
+                      <p className="text-[10px] text-yellow-500 font-semibold px-1 pt-1">★ 즐겨찾기</p>
+                      {favoriteAreas.map((area) => (
+                        <AreaCard key={area.name} area={area} isFavorite={true} onToggle={toggleFavorite} />
+                      ))}
+                      {normalAreas.length > 0 && <div className="border-t border-[#21262D] pt-1"><p className="text-[10px] text-gray-600 font-semibold px-1">전체</p></div>}
+                    </>
+                  )}
+                  {normalAreas.map((area, idx) => (
+                    <AreaCard key={area.name} area={area} idx={idx} isFavorite={false} onToggle={toggleFavorite} />
+                  ))}
+                </>
               )}
             </div>
             {areas.length > 0 && <AdBanner />}

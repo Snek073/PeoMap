@@ -35,13 +35,15 @@ function worstLevel(levels: string[]): CongestLevel {
 
 interface Props {
   areas: AreaData[];
+  userLocation?: [number, number] | null;
 }
 
-export default function CongestMap({ areas }: Props) {
+export default function CongestMap({ areas, userLocation }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
+  const userMarkerRef = useRef<L.CircleMarker | null>(null);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -93,6 +95,22 @@ export default function CongestMap({ areas }: Props) {
 
     return () => { map.remove(); mapRef.current = null; };
   }, []);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (userMarkerRef.current) { userMarkerRef.current.remove(); userMarkerRef.current = null; }
+    if (!userLocation) return;
+    const marker = L.circleMarker(userLocation, {
+      radius: 9,
+      fillColor: '#3b82f6',
+      color: '#fff',
+      fillOpacity: 0.95,
+      weight: 2.5,
+    }).bindTooltip('현재 위치', { direction: 'top' });
+    marker.addTo(mapRef.current);
+    userMarkerRef.current = marker;
+    mapRef.current.flyTo(userLocation, 14, { duration: 1.2 });
+  }, [userLocation]);
 
   useEffect(() => {
     const cluster = clusterRef.current;
