@@ -36,14 +36,16 @@ function worstLevel(levels: string[]): CongestLevel {
 interface Props {
   areas: AreaData[];
   userLocation?: [number, number] | null;
+  selectedArea?: { name: string; ts: number } | null;
 }
 
-export default function CongestMap({ areas, userLocation }: Props) {
+export default function CongestMap({ areas, userLocation, selectedArea }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const clusterRef = useRef<any>(null);
   const userMarkerRef = useRef<L.CircleMarker | null>(null);
+  const markerMapRef = useRef<Map<string, L.CircleMarker>>(new Map());
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -113,9 +115,18 @@ export default function CongestMap({ areas, userLocation }: Props) {
   }, [userLocation]);
 
   useEffect(() => {
+    if (!selectedArea || !mapRef.current) return;
+    const marker = markerMapRef.current.get(selectedArea.name);
+    if (!marker) return;
+    mapRef.current.flyTo(marker.getLatLng(), 15, { duration: 0.8 });
+    setTimeout(() => marker.openPopup(), 900);
+  }, [selectedArea]);
+
+  useEffect(() => {
     const cluster = clusterRef.current;
     if (!cluster || !mapRef.current) return;
     cluster.clearLayers();
+    markerMapRef.current.clear();
     const showLabel = mapRef.current.getZoom() >= LABEL_ZOOM;
 
     for (const area of areas) {
@@ -193,9 +204,9 @@ export default function CongestMap({ areas, userLocation }: Props) {
           return wrap;
         });
 
-      // 클러스터 색상 결정용 커스텀 옵션
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (marker.options as any).congestLevel = area.level;
+      markerMapRef.current.set(area.name, marker);
       cluster.addLayer(marker);
     }
 

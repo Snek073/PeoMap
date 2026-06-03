@@ -30,11 +30,14 @@ const LEVEL_COLOR: Record<CongestLevel, string> = {
 
 const LEVELS: CongestLevel[] = ['붐빔', '약간붐빔', '보통', '여유'];
 
-function AreaCard({ area, idx, isFavorite, onToggle }: {
-  area: AreaData; idx?: number; isFavorite: boolean; onToggle: (name: string) => void;
+function AreaCard({ area, idx, isFavorite, onToggle, onSelect }: {
+  area: AreaData; idx?: number; isFavorite: boolean; onToggle: (name: string) => void; onSelect: (name: string) => void;
 }) {
   return (
-    <div className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D]">
+    <div
+      className="bg-[#0D1117] rounded-lg p-3 border border-[#21262D] cursor-pointer hover:border-[#30363D] active:bg-white/5 transition-colors"
+      onClick={() => onSelect(area.name)}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
           {idx !== undefined && <span className="text-xs text-gray-500 w-5 shrink-0">{idx + 1}</span>}
@@ -42,7 +45,7 @@ function AreaCard({ area, idx, isFavorite, onToggle }: {
         </div>
         <div className="flex items-center gap-1 shrink-0 ml-1">
           <button
-            onClick={() => onToggle(area.name)}
+            onClick={(e) => { e.stopPropagation(); onToggle(area.name); }}
             className="text-base leading-none p-2 rounded transition-colors hover:opacity-80"
             style={{ color: isFavorite ? '#eab308' : '#4b5563' }}
             aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
@@ -79,6 +82,10 @@ export default function Home() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(false);
   const [hideYeoyu, setHideYeoyu] = useState(true);
+  const [selectedArea, setSelectedArea] = useState<{ name: string; ts: number } | null>(null);
+  const [lastFetched, setLastFetched] = useState(0);
+  const [elapsed, setElapsed] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -114,6 +121,7 @@ export default function Home() {
       const sorted = data.sort((a, b) => LEVEL_ORDER[b.level] - LEVEL_ORDER[a.level]);
       setAreas(sorted);
       if (sorted[0]) setUpdatedAt(sorted[0].updatedAt);
+      setLastFetched(Date.now());
     } catch {}
   }, []);
 
@@ -122,6 +130,31 @@ export default function Home() {
     const timer = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(timer);
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!lastFetched) return;
+    const update = () => {
+      const s = Math.floor((Date.now() - lastFetched) / 1000);
+      if (s < 30) setElapsed('방금 전');
+      else if (s < 3600) setElapsed(`${Math.floor(s / 60)}분 전`);
+      else setElapsed(`${Math.floor(s / 3600)}시간 전`);
+    };
+    update();
+    const id = setInterval(update, 10_000);
+    return () => clearInterval(id);
+  }, [lastFetched]);
+
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    await fetchData();
+    setIsRefreshing(false);
+  }, [fetchData, isRefreshing]);
+
+  const handleAreaSelect = useCallback((name: string) => {
+    setSelectedArea({ name, ts: Date.now() });
+    if (window.innerWidth < 768) setSidebarOpen(false);
+  }, []);
 
   const displayAreas = useMemo(() => {
     return areas.filter((a) => {
@@ -141,12 +174,31 @@ export default function Home() {
     <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
       {/* 지도 */}
       <div className="flex-1 relative">
-        <CongestMap areas={displayAreas} userLocation={userLocation} />
+        <CongestMap areas={displayAreas} userLocation={userLocation} selectedArea={selectedArea} />
 
         {/* 상단 뱃지 */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 whitespace-nowrap">
           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
           <span className="text-white font-semibold text-xs sm:text-sm">서울 실시간 혼잡도</span>
+          {elapsed && (
+            <>
+              <span className="text-gray-600 text-xs">·</span>
+              <span className="text-gray-400 text-[10px]">{elapsed}</span>
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="text-gray-400 hover:text-white transition-colors disabled:opacity-40"
+                aria-label="새로고침"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isRefreshing ? 'animate-spin' : ''}>
+                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                  <path d="M21 3v5h-5" />
+                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                  <path d="M8 16H3v5" />
+                </svg>
+              </button>
+            </>
+          )}
         </div>
 
         {/* 범례 + 필터 버튼 */}
@@ -299,13 +351,13 @@ export default function Home() {
                     <>
                       <p className="text-[10px] text-yellow-500 font-semibold px-1 pt-1">★ 즐겨찾기</p>
                       {favoriteAreas.map((area) => (
-                        <AreaCard key={area.name} area={area} isFavorite={true} onToggle={toggleFavorite} />
+                        <AreaCard key={area.name} area={area} isFavorite={true} onToggle={toggleFavorite} onSelect={handleAreaSelect} />
                       ))}
                       {normalAreas.length > 0 && <div className="border-t border-[#21262D] pt-1"><p className="text-[10px] text-gray-600 font-semibold px-1">전체</p></div>}
                     </>
                   )}
                   {normalAreas.map((area, idx) => (
-                    <AreaCard key={area.name} area={area} idx={idx} isFavorite={false} onToggle={toggleFavorite} />
+                    <AreaCard key={area.name} area={area} idx={idx} isFavorite={false} onToggle={toggleFavorite} onSelect={handleAreaSelect} />
                   ))}
                 </>
               )}
