@@ -43,7 +43,7 @@ function AreaCard({ area, idx, isFavorite, onToggle }: {
         <div className="flex items-center gap-1 shrink-0 ml-1">
           <button
             onClick={() => onToggle(area.name)}
-            className="text-base leading-none p-0.5 rounded transition-colors hover:opacity-80"
+            className="text-base leading-none p-2 rounded transition-colors hover:opacity-80"
             style={{ color: isFavorite ? '#eab308' : '#4b5563' }}
             aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
           >
@@ -57,7 +57,7 @@ function AreaCard({ area, idx, isFavorite, onToggle }: {
           </span>
         </div>
       </div>
-      <p className="text-gray-500 text-xs mt-1 pl-6">
+      <p className={`text-gray-500 text-xs mt-1 ${idx !== undefined ? 'pl-6' : 'pl-1'}`}>
         {area.min.toLocaleString()}~{area.max.toLocaleString()}명
       </p>
       {area.forecast?.find(f => f.level === '붐빔' || f.level === '약간붐빔') && area.level === '여유' && (
@@ -77,6 +77,7 @@ export default function Home() {
   const [filterLevel, setFilterLevel] = useState<CongestLevel | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -98,9 +99,10 @@ export default function Home() {
   const handleGetLocation = useCallback(() => {
     if (!navigator.geolocation) return;
     setLocationLoading(true);
+    setLocationError(false);
     navigator.geolocation.getCurrentPosition(
       (pos) => { setUserLocation([pos.coords.latitude, pos.coords.longitude]); setLocationLoading(false); },
-      () => setLocationLoading(false),
+      () => { setLocationLoading(false); setLocationError(true); },
     );
   }, []);
 
@@ -128,7 +130,7 @@ export default function Home() {
     });
   }, [areas, filterLevel, search]);
 
-  const favoriteAreas = useMemo(() => displayAreas.filter(a => favorites.has(a.name)), [displayAreas, favorites]);
+  const favoriteAreas = useMemo(() => areas.filter(a => favorites.has(a.name)), [areas, favorites]);
   const normalAreas = useMemo(() => displayAreas.filter(a => !favorites.has(a.name)), [displayAreas, favorites]);
 
   return (
@@ -189,7 +191,7 @@ export default function Home() {
           {locationLoading ? (
             <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           ) : (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={userLocation ? '#60a5fa' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={locationError ? '#ef4444' : userLocation ? '#60a5fa' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="9" strokeOpacity="0.3" />
             </svg>
           )}
