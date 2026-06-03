@@ -9,7 +9,13 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'PeoMap - 서울 실시간 혼잡도',
-  description: '서울 120개 지역 실시간 혼잡도를 지도로 확인하세요',
+  description: '서울 강남, 홍대, 명동, 잠실 등 120개 주요 지역의 실시간 인구 혼잡도를 지도로 확인하세요. 서울특별시 공공데이터 기반 실시간 업데이트.',
+  keywords: '서울 혼잡도, 서울 실시간 인구, 강남 혼잡도, 홍대 혼잡도, 명동 혼잡도, 서울 지도, 실시간 붐빔',
+  openGraph: {
+    title: 'PeoMap - 서울 실시간 혼잡도',
+    description: '서울 120개 지역 실시간 혼잡도를 지도로 확인하세요',
+    type: 'website',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

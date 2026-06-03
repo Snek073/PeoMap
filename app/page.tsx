@@ -370,7 +370,7 @@ export default function Home() {
                 </>
               )}
             </div>
-            {areas.length > 0 && (
+            {(favoriteAreas.length > 0 || normalAreas.length > 0) && (
               <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                 <AdBanner />
               </div>
