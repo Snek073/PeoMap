@@ -274,10 +274,8 @@ export default function Home() {
             md:relative md:inset-auto md:z-auto md:w-72
             bg-[#161B22] border-l border-[#21262D] flex flex-col overflow-hidden
           ">
-            {/* 모바일 상단 safe area */}
-            <div className="shrink-0 md:hidden" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
             {/* 헤더 */}
-            <div className="p-4 border-b border-[#21262D]">
+            <div className="p-4 border-b border-[#21262D]" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h2 className="text-white font-bold text-base">지역별 혼잡도</h2>
@@ -372,9 +370,11 @@ export default function Home() {
                 </>
               )}
             </div>
-            {areas.length > 0 && <AdBanner />}
-            {/* 모바일 하단 safe area */}
-            <div className="shrink-0 md:hidden" style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+            {areas.length > 0 && (
+              <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+                <AdBanner />
+              </div>
+            )}
           </div>
         </>
       )}
