@@ -171,23 +171,26 @@ export default function Home() {
   );
 
   return (
-    <div className="flex h-screen w-full bg-[#0D1117] overflow-hidden">
+    <div className="flex h-dvh w-full bg-[#0D1117] overflow-hidden">
       {/* 지도 */}
       <div className="flex-1 relative">
         <CongestMap areas={displayAreas} userLocation={userLocation} selectedArea={selectedArea} />
 
         {/* 상단 뱃지 */}
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 whitespace-nowrap">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-[1000] bg-black/75 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 whitespace-nowrap"
+          style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
+        >
           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
           <span className="text-white font-semibold text-xs sm:text-sm">서울 실시간 혼잡도</span>
           {elapsed && (
             <>
-              <span className="text-gray-600 text-xs">·</span>
-              <span className="text-gray-400 text-[10px]">{elapsed}</span>
+              <span className="hidden sm:inline text-gray-600 text-xs">·</span>
+              <span className="hidden sm:inline text-gray-400 text-[10px]">{elapsed}</span>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="text-gray-400 hover:text-white transition-colors disabled:opacity-40"
+                className="text-gray-400 hover:text-white transition-colors disabled:opacity-40 p-1 -m-1"
                 aria-label="새로고침"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={isRefreshing ? 'animate-spin' : ''}>
@@ -202,7 +205,10 @@ export default function Home() {
         </div>
 
         {/* 범례 + 필터 버튼 */}
-        <div className="absolute bottom-6 left-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-xl p-2.5 space-y-1">
+        <div
+          className="absolute left-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-xl p-2.5 space-y-1"
+          style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           {LEVELS.map((level) => (
             <button
               key={level}
@@ -231,7 +237,8 @@ export default function Home() {
         {/* 사이드바 토글 버튼 */}
         <button
           onClick={() => setSidebarOpen((v) => !v)}
-          className="absolute top-4 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 text-white hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation"
+          className="absolute right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 text-white hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation"
+          style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}
           aria-label="지역 목록 열기"
         >
           📊
@@ -241,7 +248,8 @@ export default function Home() {
         <button
           onClick={handleGetLocation}
           disabled={locationLoading}
-          className="absolute bottom-6 right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation disabled:opacity-50"
+          className="absolute right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation disabled:opacity-50"
+          style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
           aria-label="내 위치"
         >
           {locationLoading ? (
@@ -266,6 +274,8 @@ export default function Home() {
             md:relative md:inset-auto md:z-auto md:w-72
             bg-[#161B22] border-l border-[#21262D] flex flex-col overflow-hidden
           ">
+            {/* 모바일 상단 safe area */}
+            <div className="shrink-0 md:hidden" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
             {/* 헤더 */}
             <div className="p-4 border-b border-[#21262D]">
               <div className="flex items-start justify-between mb-3">
@@ -363,6 +373,8 @@ export default function Home() {
               )}
             </div>
             {areas.length > 0 && <AdBanner />}
+            {/* 모바일 하단 safe area */}
+            <div className="shrink-0 md:hidden" style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
           </div>
         </>
       )}

@@ -56,6 +56,7 @@ export default function CongestMap({ areas, userLocation, selectedArea }: Props)
       maxZoom: 17,
       maxBounds: L.latLngBounds(L.latLng(37.25, 126.60), L.latLng(37.82, 127.45)),
       maxBoundsViscosity: 1.0,
+      zoomControl: false,
     });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap contributors © CARTO',
