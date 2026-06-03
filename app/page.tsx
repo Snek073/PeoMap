@@ -78,7 +78,7 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState(false);
-  const [hideYeoyu, setHideYeoyu] = useState(false);
+  const [hideYeoyu, setHideYeoyu] = useState(true);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -269,7 +269,7 @@ export default function Home() {
                     border: `1px solid ${hideYeoyu ? '#6b7280' : '#21262D'}`,
                   }}
                 >
-                  여유 숨김
+                  {hideYeoyu ? '여유 표시' : '여유 숨김'}
                 </button>
                 {(filterLevel || search) && (
                   <button
