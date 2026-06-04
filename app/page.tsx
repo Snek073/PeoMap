@@ -16,6 +16,8 @@ const CongestMap = dynamic(() => import('../components/CongestMap'), {
   ),
 });
 
+type NotifState = 'unsupported' | 'default' | 'denied' | 'subscribed';
+
 const LEVEL_ORDER: Record<CongestLevel, number> = {
   '붐빔': 4, '약간붐빔': 3, '보통': 2, '여유': 1,
 };
@@ -86,6 +88,7 @@ export default function Home() {
   const [elapsed, setElapsed] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [notifState, setNotifState] = useState<NotifState>('unsupported');
 
   useEffect(() => {
     try {
@@ -93,6 +96,47 @@ export default function Home() {
       if (saved) setFavorites(new Set(JSON.parse(saved)));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    navigator.serviceWorker.register('/sw.js').then(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) setNotifState('subscribed');
+      else if (Notification.permission === 'denied') setNotifState('denied');
+      else setNotifState('default');
+    });
+  }, []);
+
+  const toggleNotification = useCallback(async () => {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    if (notifState === 'subscribed') {
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/api/subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      setNotifState('default');
+    } else {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setNotifState('denied'); return; }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      });
+      await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub),
+      });
+      setNotifState('subscribed');
+    }
+  }, [notifState]);
 
   const toggleFavorite = useCallback((name: string) => {
     setFavorites(prev => {
@@ -242,6 +286,27 @@ export default function Home() {
         >
           📊
         </button>
+
+        {/* 알림 버튼 */}
+        {notifState !== 'unsupported' && (
+          <button
+            onClick={toggleNotification}
+            disabled={notifState === 'denied'}
+            title={
+              notifState === 'subscribed' ? '알림 해제'
+              : notifState === 'denied' ? '알림이 차단되었습니다'
+              : '오전 8시 알림 받기'
+            }
+            className="absolute right-4 z-[1000] bg-black/70 backdrop-blur-sm border border-white/10 rounded-lg p-3.5 hover:bg-white/10 active:bg-white/20 transition-colors touch-manipulation disabled:opacity-40"
+            style={{ top: 'calc(4.5rem + env(safe-area-inset-top, 0px))' }}
+            aria-label="알림 설정"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={notifState === 'subscribed' ? '#f97316' : 'none'} stroke={notifState === 'subscribed' ? '#f97316' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+          </button>
+        )}
 
         {/* 내 위치 버튼 */}
         <button
