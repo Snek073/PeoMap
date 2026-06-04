@@ -22,8 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <head>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3901595520745097" crossOrigin="anonymous" />
-        <link rel="manifest" href="/manifest.json" />
+<link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#0D1117" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
