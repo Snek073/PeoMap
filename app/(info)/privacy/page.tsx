@@ -161,9 +161,9 @@ export default function PrivacyPage() {
             <div className="text-gray-400 text-sm space-y-1">
               <p><strong className="text-gray-200">서비스명:</strong> PeoMap</p>
               <p>
-                <strong className="text-gray-200">문의 이메일:</strong>{' '}
-                <a href="mailto:kangin.we@gmail.com" className="text-orange-400 underline hover:text-orange-300">
-                  kangin.we@gmail.com
+                <strong className="text-gray-200">문의:</strong>{' '}
+                <a href="/contact" className="text-orange-400 underline hover:text-orange-300">
+                  문의 페이지 바로가기
                 </a>
               </p>
               <p className="pt-2 text-gray-500">

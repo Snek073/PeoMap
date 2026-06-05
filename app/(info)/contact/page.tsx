@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import ContactButton from './ContactButton';
 
 export const metadata: Metadata = {
   title: '문의 — PeoMap 서울 실시간 혼잡도',
@@ -34,18 +35,9 @@ export default function ContactPage() {
       <section className="bg-[#161B22] border border-orange-500/30 rounded-2xl p-6 sm:p-8 space-y-4">
         <h2 className="text-lg font-bold text-white">이메일 문의</h2>
         <p className="text-gray-400 text-sm leading-relaxed">
-          아래 이메일로 문의 주시면 영업일 기준 1~3일 이내에 답변 드리겠습니다.
+          아래 버튼을 누르면 이메일 앱이 열립니다. 영업일 기준 1~3일 이내에 답변 드리겠습니다.
         </p>
-        <a
-          href="mailto:kangin.we@gmail.com"
-          className="inline-flex items-center gap-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors text-sm"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="4" width="20" height="16" rx="2" />
-            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-          </svg>
-          kangin.we@gmail.com
-        </a>
+        <ContactButton />
         <div className="text-xs text-gray-600 space-y-1 pt-1">
           <p>• 스팸 방지를 위해 제목에 [PeoMap 문의] 를 포함해 주시면 빠른 처리가 가능합니다.</p>
           <p>• 버그 신고 시 사용 중인 기기/브라우저 정보와 증상을 함께 보내주시면 도움이 됩니다.</p>
