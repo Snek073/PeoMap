@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import type { AreaData, CongestLevel } from './api/citydata/route';
 
@@ -275,6 +276,17 @@ export default function Home() {
               필터 해제
             </button>
           )}
+          <div className="pt-1.5 mt-1 border-t border-white/10 flex flex-col gap-0.5">
+            {[['소개', '/about'], ['이용안내', '/guide'], ['개인정보', '/privacy']].map(([label, href]) => (
+              <Link
+                key={href}
+                href={href}
+                className="text-[9px] text-gray-600 hover:text-gray-400 transition-colors text-center leading-relaxed"
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* 사이드바 토글 버튼 */}
